@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SHADOW SYSTEM - PERFECT BMI</title>
+    <title>SHADOW SYSTEM - GROWTH</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#001f3f">
@@ -13,7 +13,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
-        /* --- GIAO DIỆN --- */
         :root {
             --bg-dark: #050810;
             --panel-bg: linear-gradient(160deg, #0b121e 0%, #120c1f 100%);
@@ -84,7 +83,7 @@
         .gym-list input { margin-right: 10px; transform: scale(1.3); }
         .progress-text { font-family: monospace; color: #888; font-size: 1rem; }
 
-        /* BMI SECTION (FIXED) */
+        /* BMI SECTION (PRO FIX) */
         .bmi-box {
             background: rgba(0,0,0,0.4); padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #333;
             display: flex; flex-direction: column; gap: 10px;
@@ -101,6 +100,7 @@
         .calc-btn {
             width: 100%; background: var(--shadow-purple); color: #fff; border: none; padding: 10px; font-weight: bold; margin-top: 5px;
         }
+        .calc-btn:disabled { background: #333; color: #666; }
         
         .bmi-result-area { border-top: 1px dashed #444; padding-top: 10px; margin-top: 5px; display: none; }
         .analysis-text { font-size: 0.95rem; color: #e0e6ff; line-height: 1.5; margin-bottom: 5px; }
@@ -135,6 +135,7 @@
         }
         .next-day-btn:active { background: var(--danger); color: #000; }
 
+        /* REWARDS & HISTORY */
         .reward-box { border: 1px solid #555; padding: 20px; margin: 20px 0; background: rgba(255,255,255,0.05); border-radius: 8px;}
         .milestone-text { color: var(--warning); font-size: 1.6rem; text-transform: uppercase; text-shadow: 0 0 15px var(--warning); font-weight: bold; }
         .daily-text { color: var(--aura-glow); font-size: 1.3rem; font-weight: bold; }
@@ -196,7 +197,7 @@
         <div class="section-title">II. RÈN LUYỆN THỂ CHẤT</div>
         
         <div class="task-item" style="flex-direction:column; align-items:flex-start;">
-            <div style="font-weight:bold; color:var(--aura-glow); margin-bottom:5px;">PHÂN TÍCH CÂN NẶNG & MỤC TIÊU</div>
+            <div style="font-weight:bold; color:var(--aura-glow); margin-bottom:5px;">PHÂN TÍCH CƠ THỂ & MỤC TIÊU</div>
             <div class="bmi-box" style="width:100%;">
                 <div class="bmi-row">
                     <div class="bmi-input-wrapper">
@@ -213,15 +214,16 @@
                     </div>
                 </div>
                 
-                <button id="btn-calc-bmi" class="calc-btn" onclick="calculateBMI()">TÍNH TOÁN VÀ LƯU</button>
+                <button id="btn-calc-bmi" class="calc-btn" onclick="calculateBMI()">TÍNH TOÁN & LƯU</button>
 
                 <div id="bmi-result-area" class="bmi-result-area">
                     <div class="analysis-text">BMI Hiện tại: <span id="bmi-val" class="hl">--</span> (<span id="bmi-status">--</span>)</div>
-                    <div id="bmi-comparison" class="analysis-text" style="font-style:italic; color:#aaa;"></div>
-                    <div id="bmi-advice" class="analysis-text" style="margin-top:8px; border-top:1px solid #333; padding-top:5px;"></div>
+                    <div id="bmi-comparison" class="analysis-text" style="font-style:italic; color:#aaa; margin-bottom:8px;"></div>
+                    <div id="bmi-height-analysis" class="analysis-text" style="border-top:1px dashed #444; padding-top:5px;"></div>
+                    <div id="bmi-advice" class="analysis-text"></div>
                 </div>
             </div>
-            <div style="font-size:0.8rem; color:#666;">Mỗi ngày chỉ nhập 1 lần.</div>
+            <div style="font-size:0.8rem; color:#666;">Chỉ nhập 1 lần/ngày. Qua ngày sẽ mở khóa.</div>
         </div>
 
         <div class="task-item" style="flex-direction:column; align-items:flex-start;">
@@ -294,12 +296,14 @@
         "Học giặt đồ", "Học rửa chén", "Viết sách", "Chat thành người thành công", "Mua đồ <1tr", "Bóng bàn", "Bi lắc", "Phi tiêu"
     ];
 
-    // --- DATA STORE ---
-    let data = JSON.parse(localStorage.getItem('shadowV8_Fixed')) || {
+    // --- DATA ---
+    // Xóa tên cũ, dùng key mới để tránh lỗi cache
+    let data = JSON.parse(localStorage.getItem('shadowV9_Growth')) || {
         day: 1, water: 0, milk: 0, supp: 0, tasks: {}, gymDone: false, 
         lastDate: new Date().toDateString(),
         rewardClaimed: false, history: [],
-        height: '', weightHistory: [], targetBMI: '', apiKey: ''
+        height: '', targetBMI: '', apiKey: '',
+        bodyHistory: [] // [{ day: 1, weight: 60, height: 170 }]
     };
 
     function init() {
@@ -328,8 +332,8 @@
             data.day++;
             resetDailyStats();
             data.lastDate = new Date().toDateString(); 
-            // Reset BMI lock để ngày mới được nhập tiếp
-            // Lưu ý: data.weightHistory chỉ lưu 1 bản ghi/ngày hệ thống
+            // Mở khóa BMI cho ngày mới
+            unlockBMI();
             save();
             alert("Đã chuyển sang Ngày " + data.day);
             location.reload();
@@ -340,8 +344,9 @@
         data.day++;
         resetDailyStats();
         data.lastDate = dateStr;
+        unlockBMI(); // Mở khóa khi sang ngày thật
         save();
-        alert("BÌNH MINH ĐÃ LÊN! CHÀO MỪNG NGÀY THỨ " + data.day);
+        alert("CHÀO MỪNG NGÀY MỚI! NGÀY THỨ " + data.day);
         location.reload();
     }
 
@@ -350,22 +355,23 @@
         data.tasks = {}; data.gymDone = false; data.rewardClaimed = false;
     }
 
-    // --- BMI LOGIC (FIXED) ---
+    // --- BMI LOGIC (FIXED DAY COMPARISON) ---
     function loadBMIState() {
-        if(data.height) document.getElementById('height-input').value = data.height;
-        if(data.targetBMI) document.getElementById('target-bmi-input').value = data.targetBMI;
-        
-        // Logic mới: Kiểm tra xem TRONG data.weightHistory CÓ entry nào khớp với data.day (Ngày Hệ Thống) không
-        // Nếu có -> Khóa (Đã nhập hôm nay rồi)
-        // Nếu không -> Mở khóa (Chưa nhập)
-        const todayEntry = data.weightHistory.find(item => item.day === data.day);
-        
-        if(todayEntry) {
-            document.getElementById('weight-input').value = todayEntry.weight;
-            showBMIResult(data.height, todayEntry.weight, data.targetBMI, todayEntry.compare);
-            lockBMI();
-        } else {
-            unlockBMI();
+        // Load giá trị cũ nếu có
+        if(data.bodyHistory.length > 0) {
+            // Lấy entry mới nhất
+            const last = data.bodyHistory[data.bodyHistory.length - 1];
+            document.getElementById('height-input').value = last.height;
+            document.getElementById('target-bmi-input').value = data.targetBMI;
+            
+            // Nếu entry này thuộc về ngày hệ thống hiện tại -> Khóa
+            if(last.day === data.day) {
+                document.getElementById('weight-input').value = last.weight;
+                showBMIResult(last.height, last.weight, data.targetBMI, last.day);
+                lockBMI();
+            } else {
+                unlockBMI(); // Ngày mới -> Mở
+            }
         }
     }
 
@@ -374,37 +380,26 @@
         const w = parseFloat(document.getElementById('weight-input').value);
         const t = parseFloat(document.getElementById('target-bmi-input').value);
         
-        if(!h || !w || !t) { alert("Nhập đủ 3 chỉ số!"); return; }
+        if(!h || !w || !t) { alert("Vui lòng nhập đủ 3 chỉ số!"); return; }
 
-        data.height = h;
         data.targetBMI = t;
         
-        // So sánh với lần nhập gần nhất
-        let compareText = "Dữ liệu khởi điểm.";
-        if(data.weightHistory.length > 0) {
-            const lastRecord = data.weightHistory[data.weightHistory.length-1];
-            // So sánh với bản ghi cuối cùng (khác ngày hiện tại)
-            const diff = (w - lastRecord.weight).toFixed(1);
-            if(diff > 0) compareText = `▲ Tăng ${diff}kg`;
-            else if(diff < 0) compareText = `▼ Giảm ${Math.abs(diff)}kg`;
-            else compareText = "Giữ nguyên";
+        // Lưu vào lịch sử body theo ngày hiện tại
+        // Kiểm tra xem hôm nay đã lưu chưa (trường hợp sửa code)
+        const todayIdx = data.bodyHistory.findIndex(x => x.day === data.day);
+        if(todayIdx >= 0) {
+            data.bodyHistory[todayIdx] = { day: data.day, weight: w, height: h };
+        } else {
+            data.bodyHistory.push({ day: data.day, weight: w, height: h });
         }
-
-        // Lưu bản ghi MỚI gắn với data.day hiện tại
-        data.weightHistory.push({ 
-            day: data.day, // Quan trọng: Lưu theo ngày hệ thống
-            date: new Date().toLocaleDateString('vi-VN'), // Lưu thêm ngày thực để tham khảo
-            weight: w, 
-            compare: compareText 
-        });
         
         save();
-        showBMIResult(h, w, t, compareText);
+        showBMIResult(h, w, t, data.day);
         lockBMI();
-        alert("Đã lưu chỉ số Ngày " + data.day + "!");
+        alert("Đã lưu chỉ số Ngày " + data.day);
     }
 
-    function showBMIResult(h, w, t, compareText) {
+    function showBMIResult(h, w, t, currentDay) {
         const heightM = h / 100;
         const currentBMI = (w / (heightM * heightM)).toFixed(1);
         let status = currentBMI < 18.5 ? "Gầy" : (currentBMI < 24.9 ? "Chuẩn" : "Thừa cân");
@@ -412,20 +407,51 @@
         document.getElementById('bmi-result-area').style.display = 'block';
         document.getElementById('bmi-val').innerText = currentBMI;
         document.getElementById('bmi-status').innerText = status;
+
+        // 1. SO SÁNH VỚI NGÀY GẦN NHẤT TRƯỚC ĐÓ
+        let compareText = "Dữ liệu khởi điểm.";
+        if(data.bodyHistory.length > 1) {
+            // Tìm entry của ngày trước (không phải ngày hiện tại)
+            let prevEntry = null;
+            for(let i = data.bodyHistory.length - 2; i >= 0; i--) {
+                if(data.bodyHistory[i].day < currentDay) {
+                    prevEntry = data.bodyHistory[i];
+                    break;
+                }
+            }
+
+            if(prevEntry) {
+                const diffW = (w - prevEntry.weight).toFixed(1);
+                const diffH = (h - prevEntry.height).toFixed(1);
+                let wText = diffW > 0 ? `▲ Tăng ${diffW}kg` : (diffW < 0 ? `▼ Giảm ${Math.abs(diffW)}kg` : "Cân nặng không đổi");
+                let hText = diffH > 0 ? ` | ▲ Cao thêm ${diffH}cm!` : "";
+                compareText = `${wText}${hText} so với Ngày ${prevEntry.day}`;
+            }
+        }
         document.getElementById('bmi-comparison').innerText = compareText;
 
+        // 2. PHÂN TÍCH MỤC TIÊU (HACK CHIỀU CAO)
+        // Mục tiêu cân nặng để đạt BMI
         const targetWeight = (t * heightM * heightM).toFixed(1);
         const diffWeight = (w - targetWeight).toFixed(1);
+        
+        // Mục tiêu chiều cao để đạt BMI (với cân nặng hiện tại)
+        // Target BMI = W / (H_new)^2  => H_new = Sqrt(W / Target)
         const targetHeightM = Math.sqrt(w / t);
         const targetHeightCm = (targetHeightM * 100).toFixed(1);
         const diffHeight = (targetHeightCm - h).toFixed(1);
 
         let adviceHTML = "";
-        if(diffWeight > 0) adviceHTML += `➤ Cần <strong>GIẢM ${diffWeight}kg</strong> (Về ${targetWeight}kg).<br>`;
-        else if (diffWeight < 0) adviceHTML += `➤ Cần <strong>TĂNG ${Math.abs(diffWeight)}kg</strong> (Lên ${targetWeight}kg).<br>`;
-        else adviceHTML += `<span class="hl-green">➤ ĐÃ ĐẠT MỤC TIÊU!</span><br>`;
+        
+        if(diffWeight > 0) adviceHTML += `➤ Để đạt BMI ${t}: Cần <strong>GIẢM ${diffWeight}kg</strong> (Về mức ${targetWeight}kg).<br>`;
+        else if (diffWeight < 0) adviceHTML += `➤ Để đạt BMI ${t}: Cần <strong>TĂNG ${Math.abs(diffWeight)}kg</strong> (Lên mức ${targetWeight}kg).<br>`;
+        else adviceHTML += `<span class="hl-green">➤ BẠN ĐANG Ở BMI MỤC TIÊU!</span><br>`;
 
-        if(diffHeight > 0) adviceHTML += `➤ Hoặc cần <strong>CAO THÊM ${diffHeight}cm</strong> (Lên ${targetHeightCm}cm).`;
+        // Chỉ hiển thị hack chiều cao nếu cần cao lên (logic thường là đang thừa cân so với chiều cao, hoặc muốn giữ cân nặng đó mà vẫn chuẩn)
+        if(diffHeight > 0) {
+            adviceHTML += `<br>🔥 <strong>HACK CHIỀU CAO:</strong> Nếu giữ nguyên cân nặng ${w}kg, bạn cần cao thêm <strong style="color:var(--warning)">${diffHeight}cm</strong> (Lên ${targetHeightCm}cm) để đạt BMI ${t}.`;
+        }
+
         document.getElementById('bmi-advice').innerHTML = adviceHTML;
     }
 
@@ -440,12 +466,16 @@
     }
 
     function unlockBMI() {
+        document.getElementById('height-input').disabled = false;
         document.getElementById('weight-input').disabled = false;
-        document.getElementById('weight-input').value = ""; 
+        document.getElementById('weight-input').value = ""; // Clear weight
+        document.getElementById('target-bmi-input').disabled = false;
+        
         const btn = document.getElementById('btn-calc-bmi');
-        btn.innerText = "TÍNH TOÁN VÀ LƯU";
+        btn.innerText = "TÍNH TOÁN & LƯU";
         btn.disabled = false;
         btn.style.background = "var(--shadow-purple)";
+        
         document.getElementById('bmi-result-area').style.display = 'none';
     }
 
@@ -504,7 +534,7 @@
         loading.style.display = 'block';
         box.innerHTML = "";
 
-        const weightContext = JSON.stringify(data.weightHistory.slice(-5));
+        const bmiContext = JSON.stringify(data.bodyHistory.slice(-5));
 
         try {
             const imagePromises = selectedFiles.map(file => new Promise((resolve) => {
@@ -518,7 +548,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Hệ thống Solo Leveling. Cân nặng gần đây: ${weightContext}. Mục tiêu BMI: ${data.targetBMI}. Phân tích ảnh body. Nhận xét cơ/mỡ. So sánh tiến độ. Lời khuyên gắt gao. Format Markdown.` }, ...imageParts] }]
+                    contents: [{ parts: [{ text: `Hệ thống Solo Leveling. Lịch sử chỉ số (Weight/Height): ${bmiContext}. Mục tiêu BMI: ${data.targetBMI}. Phân tích ảnh body. Nhận xét cơ/mỡ. So sánh tiến độ. Lời khuyên gắt gao. Format Markdown.` }, ...imageParts] }]
                 })
             });
 
@@ -657,7 +687,7 @@
     }
 
     function save() {
-        localStorage.setItem('shadowV8_Fixed', JSON.stringify(data));
+        localStorage.setItem('shadowV9_Growth', JSON.stringify(data));
         renderUI();
     }
 
