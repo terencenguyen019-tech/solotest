@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SHADOW SYSTEM - SECURE</title>
+    <title>SHADOW SYSTEM - PERFECT BMI</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#001f3f">
@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
+        /* --- GIAO DIỆN --- */
         :root {
             --bg-dark: #050810;
             --panel-bg: linear-gradient(160deg, #0b121e 0%, #120c1f 100%);
@@ -83,7 +84,7 @@
         .gym-list input { margin-right: 10px; transform: scale(1.3); }
         .progress-text { font-family: monospace; color: #888; font-size: 1rem; }
 
-        /* BMI SECTION */
+        /* BMI SECTION (FIXED) */
         .bmi-box {
             background: rgba(0,0,0,0.4); padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #333;
             display: flex; flex-direction: column; gap: 10px;
@@ -106,10 +107,9 @@
         .hl { color: var(--warning); font-weight: bold; }
         .hl-green { color: var(--success); font-weight: bold; }
 
-        /* AI SECTION (SECURE) */
+        /* AI SECTION */
         .ai-hub { background: rgba(0, 0, 0, 0.7); border: 1px solid var(--warning); padding: 15px; border-radius: 8px; margin-bottom: 25px; }
         .api-input-box { width: 100%; padding: 10px; background: #000; border: 1px solid #555; color: #fff; margin-bottom: 10px; }
-        
         .upload-zone { border: 2px dashed var(--aura-glow); padding: 20px; text-align: center; margin-top: 15px; cursor: pointer; position: relative; }
         .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
         .preview-img { width: 100%; height: 60px; object-fit: cover; border: 1px solid #fff; border-radius: 4px; }
@@ -176,7 +176,6 @@
             <div id="ai-interface" style="display:none;">
                 <div style="font-size:0.9rem; color:#aaa; margin-bottom:10px;">TRẠNG THÁI: <span style="color:var(--success)">ĐÃ KẾT NỐI</span></div>
                 <div id="ai-locked-msg" style="color:#666; display:none;">Cổng mở vào ngày 3, 6, 9...</div>
-                
                 <div id="ai-upload-area">
                     <div class="upload-zone" onclick="document.getElementById('file-input').click()">
                         <div id="upload-label" style="color:#aaa; font-weight:bold;">CHỌN 3 ẢNH</div>
@@ -262,7 +261,7 @@
     <div class="modal-content">
         <h2 style="color:var(--aura-glow);">KHO ĐỒ & LỊCH SỬ</h2>
         <div id="history-content" class="history-list"></div>
-        <div id="empty-history" style="color:#666; margin-top:20px; font-style:italic;">Trống.</div>
+        <div id="empty-history" style="color:#666; margin-top:20px; font-style:italic;">Chưa có vật phẩm nào.</div>
         <button onclick="document.getElementById('history-modal').style.display='none'" style="width:100%; margin-top:20px; border-color:var(--danger); color:var(--danger);">ĐÓNG</button>
     </div>
 </div>
@@ -277,7 +276,6 @@
 </div>
 
 <script>
-    // --- RANKS & REWARDS ---
     const ranks = [
         { day: 0, title: "Kẻ Vô Danh" }, { day: 3, title: "[F] Kẻ Mới Thức Tỉnh" }, { day: 7, title: "[E] Tân Binh" },
         { day: 10, title: "[E+] Người Gác Cổng" }, { day: 14, title: "[D] Chiến Binh" }, { day: 17, title: "[D+] Phá Xiềng" },
@@ -296,8 +294,8 @@
         "Học giặt đồ", "Học rửa chén", "Viết sách", "Chat thành người thành công", "Mua đồ <1tr", "Bóng bàn", "Bi lắc", "Phi tiêu"
     ];
 
-    // --- DATA ---
-    let data = JSON.parse(localStorage.getItem('shadowV7_Secure')) || {
+    // --- DATA STORE ---
+    let data = JSON.parse(localStorage.getItem('shadowV8_Fixed')) || {
         day: 1, water: 0, milk: 0, supp: 0, tasks: {}, gymDone: false, 
         lastDate: new Date().toDateString(),
         rewardClaimed: false, history: [],
@@ -330,7 +328,8 @@
             data.day++;
             resetDailyStats();
             data.lastDate = new Date().toDateString(); 
-            unlockBMI();
+            // Reset BMI lock để ngày mới được nhập tiếp
+            // Lưu ý: data.weightHistory chỉ lưu 1 bản ghi/ngày hệ thống
             save();
             alert("Đã chuyển sang Ngày " + data.day);
             location.reload();
@@ -341,7 +340,6 @@
         data.day++;
         resetDailyStats();
         data.lastDate = dateStr;
-        unlockBMI(); 
         save();
         alert("BÌNH MINH ĐÃ LÊN! CHÀO MỪNG NGÀY THỨ " + data.day);
         location.reload();
@@ -352,17 +350,19 @@
         data.tasks = {}; data.gymDone = false; data.rewardClaimed = false;
     }
 
-    // --- BMI LOGIC ---
+    // --- BMI LOGIC (FIXED) ---
     function loadBMIState() {
         if(data.height) document.getElementById('height-input').value = data.height;
         if(data.targetBMI) document.getElementById('target-bmi-input').value = data.targetBMI;
         
-        const today = new Date().toDateString();
-        const lastEntry = data.weightHistory.length > 0 ? data.weightHistory[data.weightHistory.length-1] : null;
+        // Logic mới: Kiểm tra xem TRONG data.weightHistory CÓ entry nào khớp với data.day (Ngày Hệ Thống) không
+        // Nếu có -> Khóa (Đã nhập hôm nay rồi)
+        // Nếu không -> Mở khóa (Chưa nhập)
+        const todayEntry = data.weightHistory.find(item => item.day === data.day);
         
-        if(lastEntry && lastEntry.date === today) {
-            document.getElementById('weight-input').value = lastEntry.weight;
-            showBMIResult(data.height, lastEntry.weight, data.targetBMI, lastEntry.compare);
+        if(todayEntry) {
+            document.getElementById('weight-input').value = todayEntry.weight;
+            showBMIResult(data.height, todayEntry.weight, data.targetBMI, todayEntry.compare);
             lockBMI();
         } else {
             unlockBMI();
@@ -378,38 +378,30 @@
 
         data.height = h;
         data.targetBMI = t;
-        const today = new Date().toDateString();
         
+        // So sánh với lần nhập gần nhất
         let compareText = "Dữ liệu khởi điểm.";
-        // Tìm lần nhập gần nhất khác hôm nay
-        let prevEntry = null;
-        for (let i = data.weightHistory.length - 1; i >= 0; i--) {
-            if (data.weightHistory[i].date !== today) {
-                prevEntry = data.weightHistory[i];
-                break;
-            }
-        }
-
-        if(prevEntry) {
-            const diff = (w - prevEntry.weight).toFixed(1);
+        if(data.weightHistory.length > 0) {
+            const lastRecord = data.weightHistory[data.weightHistory.length-1];
+            // So sánh với bản ghi cuối cùng (khác ngày hiện tại)
+            const diff = (w - lastRecord.weight).toFixed(1);
             if(diff > 0) compareText = `▲ Tăng ${diff}kg`;
             else if(diff < 0) compareText = `▼ Giảm ${Math.abs(diff)}kg`;
             else compareText = "Giữ nguyên";
         }
 
-        // Update or Push
-        const lastEntry = data.weightHistory.length > 0 ? data.weightHistory[data.weightHistory.length-1] : null;
-        if(lastEntry && lastEntry.date === today) {
-            lastEntry.weight = w;
-            lastEntry.compare = compareText;
-        } else {
-            data.weightHistory.push({ date: today, weight: w, compare: compareText });
-        }
+        // Lưu bản ghi MỚI gắn với data.day hiện tại
+        data.weightHistory.push({ 
+            day: data.day, // Quan trọng: Lưu theo ngày hệ thống
+            date: new Date().toLocaleDateString('vi-VN'), // Lưu thêm ngày thực để tham khảo
+            weight: w, 
+            compare: compareText 
+        });
         
         save();
         showBMIResult(h, w, t, compareText);
         lockBMI();
-        alert("Đã lưu chỉ số!");
+        alert("Đã lưu chỉ số Ngày " + data.day + "!");
     }
 
     function showBMIResult(h, w, t, compareText) {
@@ -665,7 +657,7 @@
     }
 
     function save() {
-        localStorage.setItem('shadowV7_Secure', JSON.stringify(data));
+        localStorage.setItem('shadowV8_Fixed', JSON.stringify(data));
         renderUI();
     }
 
